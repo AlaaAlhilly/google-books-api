@@ -2,6 +2,9 @@ const express = require("express");
 const path = require("path");
 let router = express.Router();
 let mongoose = require('mongoose')
+const http = require("http");
+const socketIo = require("socket.io");
+const axios = require("axios");
 mongoose.Promise = Promise;
 
 const PORT = process.env.PORT || 3001;
@@ -42,7 +45,26 @@ app.use(router);
 app.get("*", function(req, res) {
   res.sendFile(path.join(__dirname, "./client/build/index.html"));
 });
-
-app.listen(PORT, function() {
+const server = http.createServer(app);
+const io = socketIo(server);
+io.on("connection", socket => {
+  console.log("New client connected"), setInterval(
+    () => getApiAndEmit(socket),
+    10000
+  );
+  socket.on("disconnect", () => console.log("Client disconnected"));
+});
+const getApiAndEmit = async socket => {
+  try {
+    const res = await axios.get(
+      "https://google-books-react-api.herokuapp.com/api/books"
+    );
+    console.log(res.data.length);
+    socket.emit("FromAPI", res.data);
+  } catch (error) {
+    console.error(`Error: ${error}`);
+  }
+};
+server.listen(PORT, function() {
   console.log(`🌎 ==> API server now on port ${PORT}!`);
 });
